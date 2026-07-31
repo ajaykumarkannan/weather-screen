@@ -2,6 +2,10 @@
 
 A static, GitHub Pages-ready weather dashboard for Toronto Island / CYTZ.
 
+The dashboard defaults to Toronto Island Airport weather at `43.6285, -79.3962`.
+Visitors can switch the forecast and radar to their own position with the browser
+location button.
+
 ## Run locally
 
 ```sh

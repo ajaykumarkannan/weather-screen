@@ -1,18 +1,26 @@
 const CONFIG = {
-  latitude: 43.6285,
-  longitude: -79.3962,
-  timezone: "America/Toronto",
+  defaultLocation: {
+    name: "Toronto Island / CYTZ",
+    latitude: 43.6285,
+    longitude: -79.3962,
+    timezone: "America/Toronto",
+    isUserLocation: false,
+  },
   refreshMs: 10 * 60 * 1000,
 };
 
 const state = {
+  location: { ...CONFIG.defaultLocation },
   lastData: null,
   lastUpdated: null,
+  requestId: 0,
 };
 
 const el = {
+  locationLabel: document.querySelector("#location-label"),
   clock: document.querySelector("#clock"),
   refreshState: document.querySelector("#refresh-state"),
+  useLocation: document.querySelector("#use-location"),
   conditionLabel: document.querySelector("#condition-label"),
   statusPill: document.querySelector("#status-pill"),
   currentWind: document.querySelector("#current-wind"),
@@ -26,14 +34,16 @@ const el = {
   updatedAt: document.querySelector("#updated-at"),
   forecastStrip: document.querySelector("#forecast-strip"),
   chart: document.querySelector("#wind-chart"),
+  radarFrame: document.querySelector("#radar-frame"),
   sourceList: document.querySelector("#source-list"),
+  windyMapLink: document.querySelector("#windy-map-link"),
   errorToast: document.querySelector("#error-toast"),
 };
 
 function forecastUrl() {
   const params = new URLSearchParams({
-    latitude: CONFIG.latitude,
-    longitude: CONFIG.longitude,
+    latitude: state.location.latitude,
+    longitude: state.location.longitude,
     current: [
       "temperature_2m",
       "wind_speed_10m",
@@ -49,11 +59,38 @@ function forecastUrl() {
       "wind_direction_10m",
     ].join(","),
     wind_speed_unit: "kn",
-    timezone: CONFIG.timezone,
+    timezone: state.location.timezone,
     forecast_days: "2",
   });
 
   return `https://api.open-meteo.com/v1/forecast?${params}`;
+}
+
+function windyEmbedUrl() {
+  const params = new URLSearchParams({
+    type: "map",
+    location: "coordinates",
+    metricRain: "mm",
+    metricTemp: "°C",
+    metricWind: "kt",
+    zoom: state.location.isUserLocation ? "8" : "7",
+    overlay: "radar",
+    product: "radar",
+    level: "surface",
+    lat: state.location.latitude.toFixed(3),
+    lon: state.location.longitude.toFixed(3),
+    message: "true",
+  });
+
+  return `https://embed.windy.com/embed.html?${params}`;
+}
+
+function windyMapUrl() {
+  return `https://www.windy.com/?${state.location.latitude.toFixed(3)},${state.location.longitude.toFixed(3)},8`;
+}
+
+function browserTimezone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || CONFIG.defaultLocation.timezone;
 }
 
 function tickClock() {
@@ -75,6 +112,10 @@ function fmtTime(value) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function fmtCoords(location) {
+  return `${location.latitude.toFixed(3)}, ${location.longitude.toFixed(3)}`;
 }
 
 function directionName(deg) {
@@ -246,10 +287,20 @@ function renderSources(data) {
 
   el.sourceList.innerHTML = `
     <li><span>Open-Meteo forecast</span><strong>Fetched ${generated}</strong></li>
+    <li><span>Location</span><strong>${state.location.name}</strong></li>
+    <li><span>Coordinates</span><strong>${fmtCoords(state.location)}</strong></li>
     <li><span>Model current time</span><strong>${fmtTime(data.current.time)}</strong></li>
     <li><span>Windy radar</span><strong>Embedded live map</strong></li>
     <li><span>Auto refresh</span><strong>Every 10 min</strong></li>
   `;
+}
+
+function updateLocationUI() {
+  el.locationLabel.textContent = state.location.name;
+  el.useLocation.textContent = state.location.isUserLocation ? "Using your location" : "Use my location";
+  el.radarFrame.src = windyEmbedUrl();
+  el.radarFrame.title = `Windy radar near ${state.location.name}`;
+  el.windyMapLink.href = windyMapUrl();
 }
 
 function showError(message) {
@@ -266,12 +317,15 @@ function clearError() {
 }
 
 async function loadWeather() {
+  const requestId = state.requestId + 1;
+  state.requestId = requestId;
   el.refreshState.textContent = "Refreshing";
 
   try {
     const response = await fetch(forecastUrl(), { cache: "no-store" });
     if (!response.ok) throw new Error(`Forecast request failed: ${response.status}`);
     const data = await response.json();
+    if (requestId !== state.requestId) return;
 
     state.lastData = data;
     state.lastUpdated = new Date();
@@ -287,12 +341,72 @@ async function loadWeather() {
       minute: "2-digit",
     })}`;
   } catch (error) {
+    if (requestId !== state.requestId) return;
     console.error(error);
     showError("Could not load weather data. Radar and source links are still available.");
   }
 }
 
+function setLocation(nextLocation) {
+  state.location = nextLocation;
+  updateLocationUI();
+  loadWeather();
+}
+
+function requestBrowserPosition() {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: false,
+      maximumAge: 10 * 60 * 1000,
+      timeout: 10000,
+    });
+  });
+}
+
+async function useBrowserLocation() {
+  if (!navigator.geolocation) {
+    showError("This browser does not support location access.");
+    return;
+  }
+
+  el.useLocation.disabled = true;
+  el.useLocation.textContent = "Finding location";
+
+  try {
+    const position = await requestBrowserPosition();
+    setLocation({
+      name: "Your location",
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      timezone: browserTimezone(),
+      isUserLocation: true,
+    });
+  } catch (error) {
+    console.error(error);
+    showError("Location was not available. Showing Toronto Island / CYTZ.");
+  } finally {
+    el.useLocation.disabled = false;
+    updateLocationUI();
+  }
+}
+
+async function useGrantedLocationIfAvailable() {
+  if (!navigator.permissions || !navigator.geolocation) return;
+
+  try {
+    const permission = await navigator.permissions.query({ name: "geolocation" });
+    if (permission.state === "granted") {
+      useBrowserLocation();
+    }
+  } catch (error) {
+    console.info("Geolocation permission state is unavailable.", error);
+  }
+}
+
 tickClock();
 setInterval(tickClock, 30 * 1000);
+el.useLocation.addEventListener("click", useBrowserLocation);
+updateLocationUI();
 loadWeather();
+useGrantedLocationIfAvailable();
 setInterval(loadWeather, CONFIG.refreshMs);

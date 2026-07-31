@@ -5,18 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="A static Toronto Island weather screen focused on wind, forecast, radar, and source freshness.">
   <title>TISC Weather Screen</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20260731-1">
 </head>
 <body>
   <main class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">Toronto Island / CYTZ</p>
+        <p class="eyebrow" id="location-label">Toronto Island / CYTZ</p>
         <h1>Weather Screen</h1>
       </div>
       <div class="topbar-meta" aria-live="polite">
         <span id="clock">--:--</span>
         <span id="refresh-state">Loading weather</span>
+        <button class="location-button" id="use-location" type="button">Use my location</button>
       </div>
     </header>
 
@@ -110,8 +111,9 @@
         </div>
         <div class="radar-frame">
           <iframe
+            id="radar-frame"
             title="Windy radar near Toronto Island"
-            src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=%C2%B0C&metricWind=kt&zoom=7&overlay=radar&product=radar&level=surface&lat=43.443&lon=-79.04&message=true"
+            src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=%C2%B0C&metricWind=kt&zoom=7&overlay=radar&product=radar&level=surface&lat=43.629&lon=-79.396&message=true"
             loading="lazy"
             referrerpolicy="no-referrer-when-downgrade"></iframe>
         </div>
@@ -126,12 +128,14 @@
         </div>
         <ul class="source-list" id="source-list">
           <li><span>Open-Meteo forecast</span><strong>Loading</strong></li>
+          <li><span>Location</span><strong>Toronto Island / CYTZ</strong></li>
+          <li><span>Coordinates</span><strong>43.629, -79.396</strong></li>
           <li><span>Windy radar</span><strong>Embedded</strong></li>
         </ul>
         <div class="source-links">
           <a href="https://spaces.navcanada.ca/workspace/aeroview/CYTZ">Nav Canada CYTZ</a>
           <a href="https://www.weather.gov/wrh/timeseries?site=CYTZ">NOAA CYTZ history</a>
-          <a href="https://www.windy.com/?43.628,-79.396,8">Windy map</a>
+          <a href="https://www.windy.com/?43.628,-79.396,8" id="windy-map-link">Windy map</a>
         </div>
       </article>
     </section>
@@ -139,6 +143,6 @@
 
   <div class="error-toast" id="error-toast" hidden></div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=20260731-1"></script>
 </body>
 </html>

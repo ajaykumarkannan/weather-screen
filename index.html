@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A static Toronto Island weather screen focused on wind, forecast, radar, and source freshness.">
+  <title>TISC Weather Screen</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Toronto Island / CYTZ</p>
+        <h1>Weather Screen</h1>
+      </div>
+      <div class="topbar-meta" aria-live="polite">
+        <span id="clock">--:--</span>
+        <span id="refresh-state">Loading weather</span>
+      </div>
+    </header>
+
+    <section class="hero-grid" aria-label="Current weather summary">
+      <article class="panel current-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Current wind</p>
+            <h2 id="condition-label">Assessing</h2>
+          </div>
+          <div class="status-pill" id="status-pill">Loading</div>
+        </div>
+
+        <div class="wind-readout">
+          <div>
+            <div class="metric-main"><span id="current-wind">--</span><span> kt</span></div>
+            <div class="metric-label">Sustained</div>
+          </div>
+          <div>
+            <div class="metric-main"><span id="current-gust">--</span><span> kt</span></div>
+            <div class="metric-label">Gust</div>
+          </div>
+          <div class="direction-gauge" aria-label="Current wind direction">
+            <div class="direction-arrow" id="direction-arrow"></div>
+            <span id="direction-label">---</span>
+          </div>
+        </div>
+
+        <div class="decision-copy" id="decision-copy">
+          Waiting for the latest conditions near Toronto Island.
+        </div>
+
+        <dl class="compact-stats">
+          <div>
+            <dt>Temperature</dt>
+            <dd id="current-temp">--</dd>
+          </div>
+          <div>
+            <dt>Rain now</dt>
+            <dd id="current-rain">--</dd>
+          </div>
+          <div>
+            <dt>Peak next 6h</dt>
+            <dd id="peak-next">--</dd>
+          </div>
+          <div>
+            <dt>Updated</dt>
+            <dd id="updated-at">--</dd>
+          </div>
+        </dl>
+      </article>
+
+      <article class="panel forecast-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Next 12 hours</p>
+            <h2>Wind Window</h2>
+          </div>
+          <span class="source-label">Open-Meteo</span>
+        </div>
+        <div class="forecast-strip" id="forecast-strip" aria-label="Hourly wind forecast"></div>
+      </article>
+    </section>
+
+    <section class="dashboard-grid">
+      <article class="panel chart-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Trend</p>
+            <h2>Wind and Gusts</h2>
+          </div>
+          <span class="source-label">Forecast model</span>
+        </div>
+        <div class="chart-wrap">
+          <svg id="wind-chart" viewBox="0 0 900 260" role="img" aria-label="Wind and gust forecast chart"></svg>
+        </div>
+        <div class="legend">
+          <span><i class="legend-line wind"></i>Wind</span>
+          <span><i class="legend-line gust"></i>Gust</span>
+          <span><i class="legend-band"></i>Caution band</span>
+        </div>
+      </article>
+
+      <article class="panel radar-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Nowcast</p>
+            <h2>Rain Radar</h2>
+          </div>
+          <span class="source-label">Windy radar</span>
+        </div>
+        <div class="radar-frame">
+          <iframe
+            title="Windy radar near Toronto Island"
+            src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=%C2%B0C&metricWind=kt&zoom=7&overlay=radar&product=radar&level=surface&lat=43.443&lon=-79.04&message=true"
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"></iframe>
+        </div>
+      </article>
+
+      <article class="panel source-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Sources</p>
+            <h2>Freshness</h2>
+          </div>
+        </div>
+        <ul class="source-list" id="source-list">
+          <li><span>Open-Meteo forecast</span><strong>Loading</strong></li>
+          <li><span>Windy radar</span><strong>Embedded</strong></li>
+        </ul>
+        <div class="source-links">
+          <a href="https://spaces.navcanada.ca/workspace/aeroview/CYTZ">Nav Canada CYTZ</a>
+          <a href="https://www.weather.gov/wrh/timeseries?site=CYTZ">NOAA CYTZ history</a>
+          <a href="https://www.windy.com/?43.628,-79.396,8">Windy map</a>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <div class="error-toast" id="error-toast" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

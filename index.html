@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="A static Toronto Island weather screen focused on wind, forecast, radar, and source freshness.">
   <title>TISC Weather Screen</title>
-  <link rel="stylesheet" href="styles.css?v=20260813-1">
+  <link rel="stylesheet" href="styles.css?v=20260813-7">
 </head>
 <body>
   <main class="app-shell">
@@ -90,10 +90,14 @@
       <article class="panel current-panel">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">Modelled current wind</p>
+            <p class="eyebrow" id="current-source-label">Loading current wind</p>
             <h2 id="condition-label">Assessing</h2>
           </div>
-          <div class="status-pill" id="status-pill">Loading</div>
+          <div class="current-badges">
+            <a class="navcanada-live" id="navcanada-live" href="https://spaces.navcanada.ca/workspace/aeroview/CYTZ" target="_blank" rel="noopener">Check live CYTZ ↗</a>
+            <span class="source-label" id="current-station">Finding station</span>
+            <div class="status-pill" id="status-pill">Loading</div>
+          </div>
         </div>
 
         <div class="wind-readout">
@@ -114,6 +118,7 @@
         <div class="decision-copy" id="decision-copy">
           Waiting for the latest conditions near Toronto Island.
         </div>
+        <div class="observation-warning" id="observation-warning" hidden></div>
 
         <dl class="compact-stats">
           <div>
@@ -121,7 +126,7 @@
             <dd id="current-temp">--</dd>
           </div>
           <div>
-            <dt>Precipitation now</dt>
+            <dt>Model precipitation</dt>
             <dd id="current-rain">--</dd>
           </div>
           <div>
@@ -133,6 +138,10 @@
             <dd id="gust-factor">--</dd>
           </div>
           <div>
+            <dt>Observation age</dt>
+            <dd id="observation-age">--</dd>
+          </div>
+          <div>
             <dt>Updated</dt>
             <dd id="updated-at">--</dd>
           </div>
@@ -142,34 +151,49 @@
       <article class="panel forecast-panel">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">Next 12 hours</p>
+            <p class="eyebrow" id="forecast-period-label">Next 12 hours</p>
             <h2>Wind Window</h2>
           </div>
-          <span class="source-label" id="profile-label">Open-Meteo</span>
+          <div class="forecast-controls">
+            <label for="forecast-model">Model</label>
+            <select id="forecast-model" aria-label="Forecast model" autocomplete="off">
+              <option value="best_match" selected>Best Match</option>
+              <option value="gem_seamless">GEM</option>
+              <option value="ecmwf_ifs025">ECMWF</option>
+              <option value="gfs_seamless">GFS</option>
+            </select>
+            <label for="forecast-range">Range</label>
+            <select id="forecast-range" aria-label="Forecast range" autocomplete="off">
+              <option value="6">6h</option>
+              <option value="12" selected>12h</option>
+              <option value="24">24h</option>
+              <option value="72">3d</option>
+              <option value="168">7d</option>
+            </select>
+            <span class="source-label" id="profile-label">Open-Meteo</span>
+          </div>
         </div>
-        <div class="forecast-strip" id="forecast-strip" aria-label="Hourly wind forecast"></div>
+        <div class="forecast-detail" id="forecast-detail" aria-live="polite">
+          <div><span>Time</span><strong id="detail-time">--</strong></div>
+          <div><span>Model</span><strong id="detail-model">Best Match</strong></div>
+          <div><span>Base wind</span><strong id="detail-wind">--</strong></div>
+          <div><span>Gust</span><strong id="detail-gust">--</strong></div>
+          <div><span>Direction</span><strong id="detail-direction">--</strong></div>
+          <div><span>Precipitation</span><strong id="detail-rain">--</strong></div>
+        </div>
+        <div class="chart-wrap">
+          <svg id="wind-chart" viewBox="0 0 900 275" role="img" aria-label="Wind, gust, and direction forecast chart"></svg>
+        </div>
+        <div class="legend">
+          <span><i class="legend-line wind"></i>Base wind</span>
+          <span><i class="legend-line gust"></i>Gust</span>
+          <span><i class="legend-band"></i>Your caution range</span>
+          <span class="legend-help">Hover or tap the graph for exact values</span>
+        </div>
       </article>
     </section>
 
     <section class="dashboard-grid">
-      <article class="panel chart-panel">
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">Trend</p>
-            <h2>Wind and Gusts</h2>
-          </div>
-          <span class="source-label">Model forecast · kt</span>
-        </div>
-        <div class="chart-wrap">
-          <svg id="wind-chart" viewBox="0 0 900 260" role="img" aria-label="Wind and gust forecast chart"></svg>
-        </div>
-        <div class="legend">
-          <span><i class="legend-line wind"></i>Wind</span>
-          <span><i class="legend-line gust"></i>Gust</span>
-          <span><i class="legend-band"></i>Caution band</span>
-        </div>
-      </article>
-
       <article class="panel radar-panel">
         <div class="panel-heading">
           <div>
@@ -182,7 +206,7 @@
           <iframe
             id="radar-frame"
             title="Windy radar near Toronto Island"
-            src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=%C2%B0C&metricWind=kt&zoom=7&overlay=radar&product=radar&level=surface&lat=43.629&lon=-79.396&message=true"
+            src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=%C2%B0C&metricWind=kt&zoom=10&overlay=radar&product=radar&level=surface&lat=43.629&lon=-79.396&message=true"
             loading="lazy"
             referrerpolicy="no-referrer-when-downgrade"></iframe>
         </div>
@@ -195,7 +219,7 @@
             <h2>Freshness</h2>
           </div>
         </div>
-        <p class="source-note">Open-Meteo values are gridded model estimates, not observations from a harbour instrument. Confirm conditions locally before sailing.</p>
+        <p class="source-note">Current wind uses the nearest fresh METAR/ASOS observation when available. Forecasts remain gridded Open-Meteo model estimates. Airport winds can differ from conditions inside a harbour, so confirm locally before sailing.</p>
         <ul class="source-list" id="source-list">
           <li><span>Open-Meteo forecast</span><strong>Loading</strong></li>
           <li><span>Location</span><strong>Toronto Island / CYTZ</strong></li>
@@ -205,6 +229,7 @@
         <div class="source-links">
           <a href="https://spaces.navcanada.ca/workspace/aeroview/CYTZ">Nav Canada CYTZ</a>
           <a href="https://www.weather.gov/wrh/timeseries?site=CYTZ">NOAA CYTZ history</a>
+          <a href="https://mesonet.agron.iastate.edu/ASOS/">IEM station data</a>
           <a href="https://www.windy.com/?43.628,-79.396,8" id="windy-map-link">Windy map</a>
         </div>
       </article>
@@ -213,6 +238,6 @@
 
   <div class="error-toast" id="error-toast" hidden></div>
 
-  <script src="app.js?v=20260813-1"></script>
+  <script src="app.js?v=20260813-7"></script>
 </body>
 </html>

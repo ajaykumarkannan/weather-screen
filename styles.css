@@ -203,6 +203,29 @@ h2 {
     var(--surface);
 }
 
+.current-badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.navcanada-live {
+  padding: 7px 10px;
+  border: 1px solid var(--blue);
+  border-radius: 999px;
+  color: #fff;
+  background: var(--blue);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.navcanada-live:hover {
+  filter: brightness(1.12);
+}
+
 .status-pill,
 .source-label {
   flex: none;
@@ -312,6 +335,23 @@ h2 {
   line-height: 1.4;
 }
 
+.observation-warning {
+  margin: -8px 18px 18px;
+  padding: 10px 12px;
+  border: 1px solid rgba(196, 133, 18, 0.55);
+  border-radius: 6px;
+  color: var(--ink);
+  background: rgba(196, 133, 18, 0.14);
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.observation-warning a {
+  color: var(--ink);
+  font-weight: 900;
+}
+
 .compact-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -341,12 +381,61 @@ h2 {
   font-weight: 900;
 }
 
-.forecast-strip {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(70px, 1fr));
+.forecast-controls {
+  display: flex;
+  align-items: center;
   gap: 8px;
-  padding: 18px;
-  overflow-x: auto;
+}
+
+.forecast-controls label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.forecast-controls select {
+  min-height: 32px;
+  padding: 5px 28px 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--ink);
+  background: var(--surface-2);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.forecast-detail {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 18px 0;
+}
+
+.forecast-detail div {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+
+.forecast-detail span {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.forecast-detail strong {
+  overflow-wrap: anywhere;
+  font-size: 0.84rem;
 }
 
 .hour-card {
@@ -404,7 +493,7 @@ h2 {
   border-right: 5px solid transparent;
   border-bottom: 15px solid var(--cyan);
   transform-origin: 50% 19px;
-  transform: rotate(var(--dir, 0deg));
+  transform: rotate(calc(var(--dir, 0deg) + 180deg));
 }
 
 .chart-panel {
@@ -412,7 +501,7 @@ h2 {
 }
 
 .chart-wrap {
-  padding: 8px 18px 0;
+  padding: 0 18px;
 }
 
 #wind-chart {
@@ -449,6 +538,79 @@ h2 {
   stroke-width: 4;
 }
 
+.chart-point {
+  stroke: var(--surface);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.wind-point {
+  fill: var(--blue);
+}
+
+.gust-point {
+  fill: var(--red);
+}
+
+.chart-direction-arrow {
+  fill: var(--cyan);
+  font-size: 19px;
+  font-weight: 900;
+  pointer-events: none;
+}
+
+.chart-direction-label {
+  fill: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.chart-hover-line {
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  pointer-events: none;
+}
+
+.chart-hover-dot {
+  stroke: var(--surface);
+  stroke-width: 3;
+  pointer-events: none;
+}
+
+.chart-hover-dot.wind-dot {
+  fill: var(--blue);
+}
+
+.chart-hover-dot.gust-dot {
+  fill: var(--red);
+}
+
+.chart-tooltip-box {
+  fill: var(--surface-2);
+  stroke: var(--border);
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+.chart-tooltip-text {
+  fill: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.chart-tooltip-detail {
+  fill: var(--muted);
+  font-size: 12px;
+}
+
+.chart-hit-area {
+  fill: transparent;
+  cursor: crosshair;
+}
+
 .legend {
   display: flex;
   flex-wrap: wrap;
@@ -463,6 +625,11 @@ h2 {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+}
+
+.legend .legend-help {
+  margin-left: auto;
+  font-weight: 700;
 }
 
 .legend-line {
@@ -642,8 +809,21 @@ h2 {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .forecast-strip {
-    grid-template-columns: repeat(12, 82px);
+  .forecast-detail {
+    align-items: stretch;
+  }
+
+  .forecast-detail div {
+    flex: 1 1 calc(50% - 8px);
+  }
+
+  .forecast-controls {
+    align-items: flex-end;
+    flex-direction: column;
+  }
+
+  .forecast-controls label {
+    display: none;
   }
 }
 

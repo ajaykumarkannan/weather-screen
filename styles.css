@@ -536,6 +536,23 @@ h2 {
   stroke-width: 1;
 }
 
+.midnight-line {
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.midnight-label {
+  fill: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
 .caution-band {
   fill: rgba(196, 133, 18, 0.14);
 }

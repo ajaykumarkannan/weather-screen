@@ -541,6 +541,36 @@ function renderChart(data) {
     el.chart.append(label);
   });
 
+  rows.slice(1).forEach((row, offset) => {
+    const index = offset + 1;
+    const previous = rows[index - 1].date;
+    const current = row.date;
+    const crossedMidnight = previous.getFullYear() !== current.getFullYear()
+      || previous.getMonth() !== current.getMonth()
+      || previous.getDate() !== current.getDate();
+    if (!crossedMidnight) return;
+
+    const midnight = new Date(current);
+    midnight.setHours(0, 0, 0, 0);
+    const interval = current.getTime() - previous.getTime();
+    const fraction = interval > 0 ? (midnight.getTime() - previous.getTime()) / interval : 1;
+    const x = scaleX(index - 1) + Math.max(0, Math.min(1, fraction)) * (scaleX(index) - scaleX(index - 1));
+    el.chart.append(make("line", {
+      class: "midnight-line",
+      x1: x,
+      x2: x,
+      y1: padding.top,
+      y2: padding.top + chartHeight,
+    }));
+    const label = make("text", {
+      class: "midnight-label",
+      x: x + 5,
+      y: padding.top + 13,
+    });
+    label.textContent = current.toLocaleDateString([], { weekday: "short" });
+    el.chart.append(label);
+  });
+
   const labelEvery = Math.max(1, Math.ceil(rows.length / 8));
   rows.forEach((row, index) => {
     if (index % labelEvery !== 0) return;

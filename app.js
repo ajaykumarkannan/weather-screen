@@ -1,16 +1,26 @@
+const LOCATIONS = {
+  "inner-harbour": { name: "Toronto Inner Harbour", latitude: 43.6350, longitude: -79.3750, timezone: "America/Toronto" },
+  "outer-harbour": { name: "Toronto Outer Harbour", latitude: 43.6260, longitude: -79.3350, timezone: "America/Toronto" },
+  "humber-bay": { name: "Humber Bay", latitude: 43.6200, longitude: -79.4750, timezone: "America/Toronto" },
+  "ashbridges-bay": { name: "Ashbridges Bay", latitude: 43.6580, longitude: -79.3150, timezone: "America/Toronto" },
+};
+
+const PROFILES = {
+  beginner: { name: "Beginner / dinghy", minimumWind: 4, cautionWind: 11, maximumWind: 15, cautionGust: 15, maximumGust: 20, cautionRain: 35, maximumRain: 65 },
+  intermediate: { name: "Intermediate / dinghy", minimumWind: 4, cautionWind: 14, maximumWind: 18, cautionGust: 18, maximumGust: 24, cautionRain: 35, maximumRain: 65 },
+  keelboat: { name: "Keelboat", minimumWind: 3, cautionWind: 18, maximumWind: 24, cautionGust: 24, maximumGust: 30, cautionRain: 45, maximumRain: 70 },
+};
+
 const CONFIG = {
-  defaultLocation: {
-    name: "Toronto Island / CYTZ",
-    latitude: 43.6285,
-    longitude: -79.3962,
-    timezone: "America/Toronto",
-    isUserLocation: false,
-  },
+  defaultLocation: { ...LOCATIONS["inner-harbour"], preset: "inner-harbour", isUserLocation: false },
+  defaultProfile: { ...PROFILES.intermediate, preset: "intermediate" },
   refreshMs: 10 * 60 * 1000,
+  storageKey: "sailing-weather-setup-v1",
 };
 
 const state = {
   location: { ...CONFIG.defaultLocation },
+  profile: { ...CONFIG.defaultProfile },
   lastData: null,
   lastUpdated: null,
   requestId: 0,
@@ -21,6 +31,24 @@ const el = {
   clock: document.querySelector("#clock"),
   refreshState: document.querySelector("#refresh-state"),
   useLocation: document.querySelector("#use-location"),
+  settingsToggle: document.querySelector("#settings-toggle"),
+  settingsPanel: document.querySelector("#sailing-settings"),
+  settingsForm: document.querySelector("#settings-form"),
+  locationPreset: document.querySelector("#location-preset"),
+  customLocationName: document.querySelector("#custom-location-name"),
+  customLatitude: document.querySelector("#custom-latitude"),
+  customLongitude: document.querySelector("#custom-longitude"),
+  profilePreset: document.querySelector("#profile-preset"),
+  minimumWind: document.querySelector("#minimum-wind"),
+  cautionWind: document.querySelector("#caution-wind"),
+  maximumWind: document.querySelector("#maximum-wind"),
+  cautionGust: document.querySelector("#caution-gust"),
+  maximumGust: document.querySelector("#maximum-gust"),
+  cautionRain: document.querySelector("#caution-rain"),
+  maximumRain: document.querySelector("#maximum-rain"),
+  shareSetup: document.querySelector("#share-setup"),
+  settingsMessage: document.querySelector("#settings-message"),
+  profileLabel: document.querySelector("#profile-label"),
   conditionLabel: document.querySelector("#condition-label"),
   statusPill: document.querySelector("#status-pill"),
   currentWind: document.querySelector("#current-wind"),
@@ -31,6 +59,7 @@ const el = {
   currentTemp: document.querySelector("#current-temp"),
   currentRain: document.querySelector("#current-rain"),
   peakNext: document.querySelector("#peak-next"),
+  gustFactor: document.querySelector("#gust-factor"),
   updatedAt: document.querySelector("#updated-at"),
   forecastStrip: document.querySelector("#forecast-strip"),
   chart: document.querySelector("#wind-chart"),
@@ -50,6 +79,7 @@ function forecastUrl() {
       "wind_gusts_10m",
       "wind_direction_10m",
       "precipitation",
+      "weather_code",
     ].join(","),
     hourly: [
       "temperature_2m",
@@ -57,6 +87,7 @@ function forecastUrl() {
       "wind_speed_10m",
       "wind_gusts_10m",
       "wind_direction_10m",
+      "weather_code",
     ].join(","),
     wind_speed_unit: "kn",
     timezone: state.location.timezone,
@@ -118,36 +149,56 @@ function fmtCoords(location) {
   return `${location.latitude.toFixed(3)}, ${location.longitude.toFixed(3)}`;
 }
 
+function escapeHtml(value) {
+  return String(value).replace(/[&<>'"]/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
+  })[character]);
+}
+
 function directionName(deg) {
   if (deg === null || deg === undefined || Number.isNaN(Number(deg))) return "---";
   const dirs = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
   return dirs[Math.round(Number(deg) / 22.5) % 16];
 }
 
-function classifyConditions(wind, gust, rainProbability) {
-  if (gust >= 24 || wind >= 18 || rainProbability >= 65) {
+function classifyConditions(wind, gust, rainProbability, thunderRisk = false) {
+  const p = state.profile;
+  const holdReasons = [];
+  const watchReasons = [];
+
+  if (thunderRisk) holdReasons.push("thunderstorms are forecast");
+  if (gust >= p.maximumGust) holdReasons.push(`gusts reach ${fmtNumber(gust)} kt (limit ${p.maximumGust})`);
+  if (wind >= p.maximumWind) holdReasons.push(`wind reaches ${fmtNumber(wind)} kt (limit ${p.maximumWind})`);
+  if (rainProbability >= p.maximumRain) holdReasons.push(`precipitation chance reaches ${fmtNumber(rainProbability)}%`);
+
+  if (holdReasons.length) {
     return {
       className: "is-hold",
       label: "Hold",
-      title: "Rough window",
-      copy: "Strong gusts or rain risk are high enough that this deserves a conservative check before heading out.",
+      title: "Outside your limits",
+      copy: `Hold: ${holdReasons.join("; ")}. This is model guidance—confirm warnings and local conditions.`,
     };
   }
 
-  if (gust >= 18 || wind >= 14 || wind < 4 || rainProbability >= 35) {
+  if (gust >= p.cautionGust) watchReasons.push(`gusts reach ${fmtNumber(gust)} kt`);
+  if (wind >= p.cautionWind) watchReasons.push(`wind reaches ${fmtNumber(wind)} kt`);
+  if (wind < p.minimumWind) watchReasons.push(`wind is below your ${p.minimumWind} kt minimum`);
+  if (rainProbability >= p.cautionRain) watchReasons.push(`precipitation chance reaches ${fmtNumber(rainProbability)}%`);
+
+  if (watchReasons.length) {
     return {
       className: "is-watch",
       label: "Watch",
-      title: "Mixed window",
-      copy: "Conditions are usable for some plans, but gusts, light air, or rain risk could change the decision.",
+      title: "Near your limits",
+      copy: `Watch: ${watchReasons.join("; ")}. Confirm conditions locally before launching.`,
     };
   }
 
   return {
     className: "is-good",
     label: "Open",
-    title: "Manageable window",
-    copy: "Wind is in a moderate range and short-term rain risk is low. Confirm locally before making the call.",
+    title: "Within your limits",
+    copy: `The next six hours remain inside the ${p.name} profile. Confirm conditions locally before launching.`,
   };
 }
 
@@ -161,6 +212,7 @@ function nextHours(data, count) {
     wind: data.hourly.wind_speed_10m[index],
     gust: data.hourly.wind_gusts_10m[index],
     direction: data.hourly.wind_direction_10m[index],
+    weatherCode: data.hourly.weather_code[index],
   }));
 
   const firstFuture = rows.findIndex((row) => row.date.getTime() >= now - 30 * 60 * 1000);
@@ -174,7 +226,8 @@ function renderCurrent(data) {
   const peakGust = Math.max(...nextSix.map((hour) => Number(hour.gust) || 0));
   const peakWind = Math.max(...nextSix.map((hour) => Number(hour.wind) || 0));
   const maxRain = Math.max(...nextSix.map((hour) => Number(hour.rain) || 0));
-  const condition = classifyConditions(current.wind_speed_10m, current.wind_gusts_10m, maxRain);
+  const thunderRisk = nextSix.some((hour) => Number(hour.weatherCode) >= 95);
+  const condition = classifyConditions(peakWind, peakGust, maxRain, thunderRisk);
 
   el.conditionLabel.textContent = condition.title;
   el.statusPill.textContent = condition.label;
@@ -187,7 +240,10 @@ function renderCurrent(data) {
   el.currentTemp.innerHTML = `${fmtNumber(current.temperature_2m, 1)}&deg;C`;
   el.currentRain.textContent = `${fmtNumber(current.precipitation, 1)} mm`;
   el.peakNext.textContent = `${fmtNumber(peakWind)}-${fmtNumber(peakGust)} kt`;
+  const currentWind = Number(current.wind_speed_10m);
+  el.gustFactor.textContent = currentWind > 0 ? `${(Number(current.wind_gusts_10m) / currentWind).toFixed(1)}×` : "--";
   el.updatedAt.textContent = fmtTime(current.time);
+  el.profileLabel.textContent = state.profile.name;
 }
 
 function renderForecast(data) {
@@ -217,12 +273,14 @@ function renderChart(data) {
   const padding = { top: 20, right: 22, bottom: 42, left: 48 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
-  const maxValue = Math.max(24, ...rows.map((row) => Number(row.gust) || 0)) + 4;
+  const maxValue = Math.max(state.profile.maximumGust, ...rows.map((row) => Number(row.gust) || 0)) + 4;
   const scaleX = (index) => padding.left + (index / Math.max(1, rows.length - 1)) * chartWidth;
   const scaleY = (value) => padding.top + chartHeight - (Number(value) / maxValue) * chartHeight;
   const windPoints = rows.map((row, index) => ({ x: scaleX(index), y: scaleY(row.wind) }));
   const gustPoints = rows.map((row, index) => ({ x: scaleX(index), y: scaleY(row.gust) }));
-  const yTicks = [0, 8, 16, 24, 32].filter((tick) => tick <= maxValue);
+  const yTicks = [...new Set([0, 8, 16, 24, 32, state.profile.cautionGust, state.profile.maximumGust])]
+    .sort((a, b) => a - b)
+    .filter((tick) => tick <= maxValue);
 
   el.chart.replaceChildren();
 
@@ -237,9 +295,9 @@ function renderChart(data) {
     make("rect", {
       class: "caution-band",
       x: padding.left,
-      y: scaleY(24),
+      y: scaleY(state.profile.maximumGust),
       width: chartWidth,
-      height: Math.max(0, scaleY(16) - scaleY(24)),
+      height: Math.max(0, scaleY(state.profile.cautionGust) - scaleY(state.profile.maximumGust)),
       rx: 6,
     })
   );
@@ -286,8 +344,9 @@ function renderSources(data) {
   }) : "--";
 
   el.sourceList.innerHTML = `
-    <li><span>Open-Meteo forecast</span><strong>Fetched ${generated}</strong></li>
-    <li><span>Location</span><strong>${state.location.name}</strong></li>
+    <li><span>Open-Meteo model forecast</span><strong>Fetched ${generated}</strong></li>
+    <li><span>Sailing profile</span><strong>${escapeHtml(state.profile.name)}</strong></li>
+    <li><span>Location</span><strong>${escapeHtml(state.location.name)}</strong></li>
     <li><span>Coordinates</span><strong>${fmtCoords(state.location)}</strong></li>
     <li><span>Model current time</span><strong>${fmtTime(data.current.time)}</strong></li>
     <li><span>Windy radar</span><strong>Embedded live map</strong></li>
@@ -353,6 +412,163 @@ function setLocation(nextLocation) {
   loadWeather();
 }
 
+const PROFILE_FIELDS = {
+  minimumWind: el.minimumWind,
+  cautionWind: el.cautionWind,
+  maximumWind: el.maximumWind,
+  cautionGust: el.cautionGust,
+  maximumGust: el.maximumGust,
+  cautionRain: el.cautionRain,
+  maximumRain: el.maximumRain,
+};
+
+function validCoordinate(value, minimum, maximum) {
+  return Number.isFinite(Number(value)) && Number(value) >= minimum && Number(value) <= maximum;
+}
+
+function syncSettingsForm() {
+  el.locationPreset.value = LOCATIONS[state.location.preset] ? state.location.preset : "custom";
+  el.customLocationName.value = state.location.name;
+  el.customLatitude.value = Number(state.location.latitude).toFixed(4);
+  el.customLongitude.value = Number(state.location.longitude).toFixed(4);
+  el.profilePreset.value = PROFILES[state.profile.preset] ? state.profile.preset : "custom";
+  Object.entries(PROFILE_FIELDS).forEach(([key, input]) => { input.value = state.profile[key]; });
+}
+
+function saveSetup() {
+  try {
+    localStorage.setItem(CONFIG.storageKey, JSON.stringify({ location: state.location, profile: state.profile }));
+  } catch (error) {
+    console.info("Could not save sailing setup.", error);
+  }
+}
+
+function restoreSetup() {
+  let saved;
+  try {
+    saved = JSON.parse(localStorage.getItem(CONFIG.storageKey));
+  } catch (error) {
+    console.info("Could not read saved sailing setup.", error);
+  }
+
+  if (saved?.location && validCoordinate(saved.location.latitude, -90, 90) && validCoordinate(saved.location.longitude, -180, 180)) {
+    state.location = { ...CONFIG.defaultLocation, ...saved.location };
+  }
+  if (saved?.profile) {
+    const valuesAreValid = Object.keys(PROFILE_FIELDS).every((key) => Number.isFinite(Number(saved.profile[key])));
+    if (valuesAreValid) state.profile = { ...CONFIG.defaultProfile, ...saved.profile };
+  }
+
+  const params = new URLSearchParams(location.search);
+  if (params.has("lat") && params.has("lon") && validCoordinate(params.get("lat"), -90, 90) && validCoordinate(params.get("lon"), -180, 180)) {
+    state.location = {
+      name: (params.get("name") || "Shared sailing location").slice(0, 60),
+      latitude: Number(params.get("lat")),
+      longitude: Number(params.get("lon")),
+      timezone: params.get("tz") || browserTimezone(),
+      preset: "custom",
+      isUserLocation: false,
+    };
+  }
+
+  const profileKey = params.get("profile");
+  if (PROFILES[profileKey]) state.profile = { ...PROFILES[profileKey], preset: profileKey };
+  const urlFields = { min: "minimumWind", cw: "cautionWind", mw: "maximumWind", cg: "cautionGust", mg: "maximumGust", cr: "cautionRain", mr: "maximumRain" };
+  let hasCustomLimit = false;
+  Object.entries(urlFields).forEach(([param, key]) => {
+    if (params.has(param) && Number.isFinite(Number(params.get(param)))) {
+      state.profile[key] = Number(params.get(param));
+      hasCustomLimit = true;
+    }
+  });
+  if (hasCustomLimit) state.profile = { ...state.profile, name: "Custom limits", preset: "custom" };
+}
+
+function applyLocationPreset() {
+  const preset = LOCATIONS[el.locationPreset.value];
+  if (!preset) return;
+  el.customLocationName.value = preset.name;
+  el.customLatitude.value = preset.latitude.toFixed(4);
+  el.customLongitude.value = preset.longitude.toFixed(4);
+}
+
+function applyProfilePreset() {
+  const profile = PROFILES[el.profilePreset.value];
+  if (!profile) return;
+  Object.entries(PROFILE_FIELDS).forEach(([key, input]) => { input.value = profile[key]; });
+}
+
+function applySettings(event) {
+  event.preventDefault();
+  const latitude = Number(el.customLatitude.value);
+  const longitude = Number(el.customLongitude.value);
+  const profile = Object.fromEntries(Object.entries(PROFILE_FIELDS).map(([key, input]) => [key, Number(input.value)]));
+
+  if (!validCoordinate(latitude, -90, 90) || !validCoordinate(longitude, -180, 180)) {
+    el.settingsMessage.textContent = "Enter valid latitude and longitude values.";
+    return;
+  }
+  if (profile.maximumWind <= profile.cautionWind || profile.maximumGust <= profile.cautionGust || profile.maximumRain < profile.cautionRain) {
+    el.settingsMessage.textContent = "Maximum limits must be higher than caution limits.";
+    return;
+  }
+
+  const selectedLocation = LOCATIONS[el.locationPreset.value];
+  const isUnchangedLocation = selectedLocation
+    && Math.abs(latitude - selectedLocation.latitude) < 0.00001
+    && Math.abs(longitude - selectedLocation.longitude) < 0.00001
+    && el.customLocationName.value.trim() === selectedLocation.name;
+  const locationPreset = isUnchangedLocation ? el.locationPreset.value : "custom";
+  const selectedProfile = PROFILES[el.profilePreset.value];
+  const isUnchangedProfile = selectedProfile
+    && Object.keys(PROFILE_FIELDS).every((key) => profile[key] === selectedProfile[key]);
+  const profilePreset = isUnchangedProfile ? el.profilePreset.value : "custom";
+  state.location = {
+    name: el.customLocationName.value.trim() || "Custom sailing location",
+    latitude,
+    longitude,
+    timezone: locationPreset === "custom" ? browserTimezone() : selectedLocation.timezone,
+    preset: locationPreset,
+    isUserLocation: false,
+  };
+  state.profile = {
+    ...profile,
+    name: profilePreset === "custom" ? "Custom limits" : selectedProfile.name,
+    preset: profilePreset,
+  };
+  saveSetup();
+  syncSettingsForm();
+  updateLocationUI();
+  el.settingsMessage.textContent = "Setup saved.";
+  loadWeather();
+}
+
+function setupShareUrl() {
+  const url = new URL(location.href);
+  url.search = "";
+  const params = url.searchParams;
+  params.set("lat", state.location.latitude.toFixed(4));
+  params.set("lon", state.location.longitude.toFixed(4));
+  params.set("name", state.location.name);
+  params.set("tz", state.location.timezone);
+  params.set("profile", state.profile.preset);
+  if (state.profile.preset === "custom") {
+    const fields = { min: "minimumWind", cw: "cautionWind", mw: "maximumWind", cg: "cautionGust", mg: "maximumGust", cr: "cautionRain", mr: "maximumRain" };
+    Object.entries(fields).forEach(([param, key]) => params.set(param, state.profile[key]));
+  }
+  return url.toString();
+}
+
+async function shareSetup() {
+  const url = setupShareUrl();
+  try {
+    await navigator.clipboard.writeText(url);
+    el.settingsMessage.textContent = "Share link copied.";
+  } catch (error) {
+    window.prompt("Copy this sailing setup link:", url);
+  }
+}
+
 function requestBrowserPosition() {
   return new Promise((resolve, reject) => {
     navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -374,13 +590,18 @@ async function useBrowserLocation() {
 
   try {
     const position = await requestBrowserPosition();
-    setLocation({
+    state.location = {
       name: "Your location",
       latitude: position.coords.latitude,
       longitude: position.coords.longitude,
       timezone: browserTimezone(),
+      preset: "custom",
       isUserLocation: true,
-    });
+    };
+    saveSetup();
+    syncSettingsForm();
+    updateLocationUI();
+    loadWeather();
   } catch (error) {
     console.error(error);
     showError("Location was not available. Showing Toronto Island / CYTZ.");
@@ -403,10 +624,19 @@ async function useGrantedLocationIfAvailable() {
   }
 }
 
+restoreSetup();
+syncSettingsForm();
 tickClock();
 setInterval(tickClock, 30 * 1000);
 el.useLocation.addEventListener("click", useBrowserLocation);
+el.settingsToggle.addEventListener("click", () => {
+  el.settingsPanel.hidden = !el.settingsPanel.hidden;
+  el.settingsToggle.setAttribute("aria-expanded", String(!el.settingsPanel.hidden));
+});
+el.locationPreset.addEventListener("change", applyLocationPreset);
+el.profilePreset.addEventListener("change", applyProfilePreset);
+el.settingsForm.addEventListener("submit", applySettings);
+el.shareSetup.addEventListener("click", shareSetup);
 updateLocationUI();
 loadWeather();
-useGrantedLocationIfAvailable();
 setInterval(loadWeather, CONFIG.refreshMs);

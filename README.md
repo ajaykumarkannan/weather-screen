@@ -1,10 +1,12 @@
 # TISC Weather Screen
 
-A static, GitHub Pages-ready weather dashboard for Toronto Island / CYTZ.
+A static, GitHub Pages-ready sailing weather dashboard for Toronto and customizable locations.
 
-The dashboard defaults to Toronto Island Airport weather at `43.6285, -79.3962`.
-Visitors can switch the forecast and radar to their own position with the browser
-location button.
+The dashboard defaults to Toronto Inner Harbour at `43.6350, -79.3750`.
+Visitors can choose a Toronto sailing area, enter custom coordinates, or switch the
+forecast and radar to their browser position. Sailing profiles and custom wind,
+gust, and precipitation thresholds are saved locally. A configured setup can also
+be shared by URL.
 
 ## Run locally
 
@@ -24,6 +26,11 @@ No build step is required. The page uses relative local files and browser-fetche
 
 ## Data sources
 
-- Open-Meteo forecast API for current conditions and hourly forecast.
+- Open-Meteo forecast API for modelled current conditions and hourly forecast.
 - Windy embedded radar map.
 - Direct links to Nav Canada, NOAA CYTZ history, and Windy for manual verification.
+
+Open-Meteo values are gridded model estimates rather than observations from a
+harbour instrument. The Open/Watch/Hold assessment is calculated in the browser
+using the selected sailing profile; forecast thunderstorms force a Hold result.
+Always confirm warnings and local conditions before sailing.

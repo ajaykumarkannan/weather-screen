@@ -308,14 +308,28 @@ h2 {
 }
 
 .direction-arrow {
-  position: relative;
+  position: absolute;
   z-index: 1;
+  top: 18px;
+  left: 62px;
+  width: 4px;
+  height: 46px;
+  border-radius: 999px;
+  background: var(--blue);
+  transform-origin: 50% 100%;
+}
+
+.direction-arrow::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: 50%;
   width: 0;
   height: 0;
-  border-left: 12px solid transparent;
-  border-right: 12px solid transparent;
-  border-bottom: 46px solid var(--blue);
-  transform-origin: 50% 72px;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 14px solid var(--blue);
+  transform: translateX(-50%);
 }
 
 .direction-gauge span {
